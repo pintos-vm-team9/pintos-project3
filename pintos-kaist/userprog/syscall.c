@@ -272,6 +272,7 @@ sys_wait(pid_t pid){
 	if(exit_pid = get_exit_child_process(pid) != -1) {
 		thread_current()->waiting_child = pid;
 		lock_release(&syswait_lock);
+		//return exit_pid;
 		return get_exit_child_process(pid);
 	}
 	thread_current()->waiting_child = pid;

@@ -193,4 +193,4 @@ mount (const char *path, int chan_no, int dev_no) {
 int
 umount (const char *path) {
 	return syscall1 (SYS_UMOUNT, path);
-}
+}	
