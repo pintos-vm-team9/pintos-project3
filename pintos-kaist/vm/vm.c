@@ -62,11 +62,18 @@ err:
 
 /* Find VA from spt and return page. On error, return NULL. */
 struct page *
-spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
+spt_find_page (struct supplemental_page_table *spt, void *va) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
+    struct page dummy_page; dummy_page.va = pg_round_down(va); // dummy for hashing
+    struct hash_elem *e;
 
-	return page;
+    e = hash_find(&spt->swap_pages_table, &dummy_page.h_elem);
+
+	if(e == NULL)
+		return NULL;
+
+    return page = hash_entry(e, struct page, h_elem);
 }
 
 /* Insert PAGE into spt with validation. */
@@ -75,7 +82,12 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
 	int succ = false;
 	/* TODO: Fill this function. */
-
+	if(spt != NULL && page != NULL){
+		// hash_insert (struct hash *h, struct hash_elem *new)
+		if(!hash_insert(&spt->swap_pages_table, &page->h_elem)){ //null이면 삽입 성공
+			succ = true;
+		}
+	}
 	return succ;
 }
 
@@ -115,7 +127,16 @@ vm_get_frame (void) {
 
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
-	return frame;
+	//새로운 물리 메모리 페이지 가져오기
+	frame->kva = palloc_get_page(PAL_USER);
+	frame->page = NULL;
+
+	if(frame->kva == NULL){
+		free(frame);
+		return;
+	}else{
+		return frame;
+	}
 }
 
 /* Growing the stack. */
@@ -151,8 +172,13 @@ vm_dealloc_page (struct page *page) {
 /* Claim the page that allocate on VA. */
 bool
 vm_claim_page (void *va UNUSED) {
+	struct thread *cur = thread_current();
 	struct page *page = NULL;
 	/* TODO: Fill this function */
+	//spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED)
+	page = spt_find_page(&cur->spt, va);
+	if(page==NULL)
+		return false;
 
 	return vm_do_claim_page (page);
 }
@@ -160,6 +186,7 @@ vm_claim_page (void *va UNUSED) {
 /* Claim the PAGE and set up the mmu. */
 static bool
 vm_do_claim_page (struct page *page) {
+	struct thread *cur = thread_current();
 	struct frame *frame = vm_get_frame ();
 
 	/* Set links */
@@ -167,8 +194,13 @@ vm_do_claim_page (struct page *page) {
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-
-	return swap_in (page, frame->kva);
+	//pml4_get_page (uint64_t *pml4, const void *uaddr) : 주어진 사용자 주소에 매핑된 페이지가 없으면 NULL을 반환
+	//pml4_set_page (uint64_t *pml4, void *upage, void *kpage, bool rw) : 사용자 가상 주소에 물리 페이지 프레임 매핑이 성공했는지 안했는지
+	if(pml4_get_page(cur->pml4, page->va)==NULL && pml4_set_page(cur->pml4, page->va, frame->kva, page->writable))
+		return swap_in (page, frame->kva); //해당 사용자 주소에 매핑된 페이지가 없고, 사용자 주소에 물리 페이지 프레임 매핑을 성공 했다면 
+		//swap_in(page, frame->kva) : page를 메모리로 가져오는 역할
+	
+	return false;
 }
 
 /* Initialize new supplemental page table */
