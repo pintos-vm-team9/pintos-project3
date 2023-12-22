@@ -148,6 +148,7 @@ struct thread {
 	struct list exit_child_list;
 	//struct list killed_list;
 	//struct list_elem k_elem;
+	// vm
 	
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -157,8 +158,9 @@ struct thread {
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
+	void *stack;
+	void *rsp_stack;
 #endif
-
 	/* Owned by thread.c. */
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
