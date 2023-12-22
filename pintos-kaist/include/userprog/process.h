@@ -10,4 +10,5 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (struct thread *next);
 bool duplicate_pte (uint64_t *pte, void *va, void *aux);
+bool install_page (void *upage, void *kpage, bool writable);
 #endif /* userprog/process.h */

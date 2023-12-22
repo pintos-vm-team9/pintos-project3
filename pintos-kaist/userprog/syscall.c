@@ -67,22 +67,6 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 
-	/* Projects 2 and later. */
-	// SYS_HALT,                   /* Halt the operating system. */
-	// SYS_EXIT,                   /* Terminate this process. */
-	// SYS_FORK,                   /* Clone current process. */
-	// SYS_EXEC,                   /* Switch current process. */
-	// SYS_WAIT,                   /* Wait for a child process to die. */
-	// SYS_CREATE,                 /* Create a file. */
-	// SYS_REMOVE,                 /* Delete a file. */
-	// SYS_OPEN,                   /* Open a file. */
-	// SYS_FILESIZE,               /* Obtain a file's size. */
-	// SYS_READ,                   /* Read from a file. */
-	// SYS_WRITE,                  /* Write to a file. */
-	// SYS_SEEK,                   /* Change position in a file. */
-	// SYS_TELL,                   /* Report current position in a file. */
-	// SYS_CLOSE,                  /* Close a file. */
-	
 	switch(f->R.rax){
 		case SYS_HALT:
 			sys_halt(); // done
@@ -114,9 +98,11 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			f->R.rax = sys_filesize(f->R.rdi);
 			break;
 		case SYS_READ:
+			check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 1);
 			f->R.rax = sys_read(f->R.rdi,f->R.rsi,f->R.rdx);
 			break;
 		case SYS_WRITE:
+			check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 0);
 			f->R.rax = sys_write(f->R.rdi,f->R.rsi,f->R.rdx);
 			break;
 		case SYS_SEEK:
@@ -142,9 +128,6 @@ sys_exit(int status){
 	thread_current()->exit_status = status;
 
 	printf("%s: exit(%d)\n",thread_current()->name, thread_current()->exit_status);
-	// for(int i=0; i<63; i++){
-	// 	thread_current()->fdt[i] = NULL;
-	// }
 	thread_exit();
 }
 
@@ -176,25 +159,9 @@ remove_child_process(pid_t pid){ // 자식 스레드의 메모리도 해제 해�
 	}
 	return; // not exist!
 }
-// struct thread_args {
-//     	uint64_t *pml4;                     // 첫 번째 필드: 포인터 타입
-//     	void *pte_func;      // 두 번째 필드: 함수 포인터 타입
-// 		void *aux;
-// 	};	
 
-// void thread_function_wrapper(void *arg) {
-//     struct thread_args *args = (struct thread_args *)arg;
-//     pml4_for_each(args->pml4, args->pte_func, args->aux);
-// }
 pid_t
 sys_fork(const char* thread_name,struct intr_frame *f ){
-
-	// struct thread_args args;
-	// args.pml4 = thread_current()->pml4;
-	// args.pte_func = *duplicate_pte;
-	// args.aux = NULL;
-
-	// pid_t child = thread_create(thread_name, thread_current()->priority, thread_function_wrapper, &args);
 	
 	int pid = process_fork(thread_name,f); 
 	
@@ -233,19 +200,6 @@ sys_exec(const char *cmd_line){
 		sys_exit(-1);
 	//return -1;
 }
-// int
-// sys_exec (const char *cmd_line) {
-// 	char *fn_copy;
-// 	int dst_len = strlen(cmd_line)+1;
-// 	fn_copy = palloc_get_page (PAL_ZERO);
-// 	if (fn_copy == NULL)
-// 		sys_exit(-1);
-
-// 	memcpy(fn_copy, cmd_line, dst_len);
-
-// 	if (process_exec (fn_copy) < 0)
-// 		sys_exit(-1);
-// }
 
 int
 get_exit_child_process(pid_t pid){
@@ -287,18 +241,11 @@ sys_create(const char *file, unsigned initial_size,uintptr_t rsp){
 	   2. 너무 긴 file 이름인 경우 -> return 0;
 	   3. 
 	*/
-	// printf("\n create file addr:%p\n",file);
-	
+
 	if(!pml4_get_page(thread_current()->pml4,file)) { // file 주소에 할당된 페이지가 있나없나.. 
 		sys_exit(-1);
 	}
 
-	// if(file == NULL) sys_exit(-1);
-	// if(file[0] == '\0' ){
-	// 	return 0;
-	// }
-
-	// if(strlen(file) >= 128) return 0;
 	return filesys_create(file,initial_size);
 }
 
@@ -349,9 +296,9 @@ sys_filesize(int fd){
 int
 sys_read(int fd, void *buffer, unsigned size){
 	
-	if(!pml4_get_page(thread_current()->pml4,buffer)) { 
-		sys_exit(-1);
-	}
+	// if(!pml4_get_page(thread_current()->pml4,buffer)) { 
+	// 	sys_exit(-1);
+	// }
 	
 	lock_acquire(&sysfile_lock);
 	int file_size;	
@@ -382,9 +329,9 @@ int
 sys_write(int fd, const void* buffer, unsigned size){
 	// printf("sys_write inside!\n");
 	// printf("fd:%d, buffer:%s",fd,buffer);
-	if(!pml4_get_page(thread_current()->pml4,buffer)) { 
-		sys_exit(-1);
-	}
+	// if(!pml4_get_page(thread_current()->pml4,buffer)) { 
+	// 	sys_exit(-1);
+	// }
 	lock_acquire(&sysfile_lock);
 	if(fd == 1){ // stdout
 		// use putbuf.. 로 바꿔야함
@@ -420,13 +367,27 @@ sys_tell(int fd){
 
 void
 sys_close(int fd){
-	// if(!pml4_get_page(thread_current()->pml4,fd)) { 
-	// 	sys_exit(-1);
-	// }
 	if (fd < 0 || fd > 63) return;
 	if (thread_current()->fdt[fd] == NULL) return;
 	
 	file_close(thread_current()->fdt[fd]);
 	thread_current()->fdt[fd] = NULL;
 	return;
+}
+
+struct page * check_address(void *addr){
+    if(is_kernel_vaddr(addr)){
+        sys_exit(-1);
+    }
+    return spt_find_page(&thread_current()->spt,addr);
+}
+
+void check_valid_buffer(void* buffer, unsigned size, void* rsp, bool to_write){
+    for(int i=0; i<size; i++){
+        struct page* page = check_address(buffer + i);
+        if(page == NULL)
+            sys_exit(-1);
+        if(to_write == true && page->writable == false)
+            sys_exit(-1);
+    }
 }

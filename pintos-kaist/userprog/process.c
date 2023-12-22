@@ -147,7 +147,7 @@ __do_fork (void *aux) {
 	bool succ = true;
 	parent_if = &parent->parent_if;
 	/* 1. Read the cpu context to local stack. */
-	memcpy (&if_,parent_if, sizeof (struct intr_frame)); // tf 
+	memcpy (&if_, parent_if, sizeof (struct intr_frame)); // tf 
 	// memcpy(&current->tf,parent_if,sizeof(struct intr_frame));
 	// current->tf = if_; //쨘
 
@@ -795,7 +795,26 @@ install_page (void *upage, void *kpage, bool writable) {
 	return (pml4_get_page (t->pml4, upage) == NULL
 			&& pml4_set_page (t->pml4, upage, kpage, writable));
 }
+
+
 #else
+
+struct file_data {
+	struct file *file;
+	off_t ofs;
+	size_t read_bytes;
+};
+
+bool
+install_page_vm (void *upage, void *kpage, bool writable) {
+	struct thread *t = thread_current ();
+
+	/* Verify that there's not already a page at that virtual
+	 * address, then map our page there. */
+	return (pml4_get_page (t->pml4, upage) == NULL
+			&& pml4_set_page (t->pml4, upage, kpage, writable));
+}
+
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
@@ -805,6 +824,32 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+	/*
+	    당신은 load_segment 함수 내부의 vm_alloc_page_with_initialize의 네 번째 인자가
+	    lazy_load_segment 라는 것을 알아차렸을 것입니다. 이 함수는 실행 가능한 파일의 페이지들을
+	    초기화하는 함수이고 page fault가 발생할 때 호출됩니다. 이 함수는 페이지 구조체와 aux를
+	    인자로 받습니다. aux는 load_segment에서 당신이 설정하는 정보입니다. 이 정보를 사용하여
+	    당신은 세그먼트를 읽을 파일을 찾고 최종적으로는 세그먼트를 메모리에서 읽어야 합니다.
+	*/
+	struct file *file = ((struct file_data *)aux)->file;
+	off_t offset = ((struct file_data *)aux)->ofs;
+	size_t page_read_bytes = ((struct file_data *)aux)->read_bytes;
+	size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+	file_seek(file, offset); // file의 오프셋을 offset으로 바꾼다. 이제 offset부터 읽기 시작한다.
+
+	/* 페이지에 매핑된 물리 메모리(frame, 커널 가상 주소)에 파일의 데이터를 읽어온다. */
+	/* 제대로 못 읽어오면 페이지를 FREE시키고 FALSE 리턴 */
+	if (file_read(file, page->frame->kva, page_read_bytes) != (int)page_read_bytes)
+	{
+		palloc_free_page(page->frame->kva);
+		return false;
+	}
+	/* 나머지 0을 채우는 용도 */
+	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
+
+	return true;
+
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -836,15 +881,20 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
+		struct file_data *file_data = (struct file_data *)malloc(sizeof(struct file_data));
+        file_data->file = file;
+        file_data->read_bytes = page_read_bytes;
+        file_data->ofs = ofs;
+
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
-					writable, lazy_load_segment, aux))
+					writable, lazy_load_segment, file_data))
 			return false;
 
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
+		ofs += page_read_bytes;
 	}
 	return true;
 }
@@ -859,7 +909,22 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
+	/*
+		당신은 스택 할당 부분이  새로운 메모리 관리 시스템에 적합할 수 있도록 userprog/process.c에 
+		있는 setup_stack 을 수정해야 합니다. 첫 스택 페이지는 지연적으로 할당될 필요가 없습니다. 
+		당신은 페이지 폴트가 발생하는 것을 기다릴 필요 없이 그것(스택 페이지)을 load time 때 
+		커맨드 라인의 인자들과 함께 할당하고 초기화 할 수 있습니다. 당신은 스택을 확인하는 
+		방법을 제공해야 합니다. 당신은 vm/vm.h의 vm_type에 있는 보조 marker(예 - VM_MARKER_0)들을 
+		페이지를 마킹하는데 사용할 수 있습니다.
+	*/
 
+	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, 1)){
+        success = vm_claim_page(stack_bottom);
+        if(success){
+            if_->rsp = USER_STACK;
+            thread_current()->stack = stack_bottom;
+        }
+    }
 	return success;
 }
 #endif /* VM */
