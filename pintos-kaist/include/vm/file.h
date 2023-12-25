@@ -14,4 +14,6 @@ bool file_backed_initializer (struct page *page, enum vm_type type, void *kva);
 void *do_mmap(void *addr, size_t length, int writable,
 		struct file *file, off_t offset);
 void do_munmap (void *va);
+
+static void* mmap (void *addr, size_t length, int writable, int fd, off_t offset); //project 3 추가
 #endif

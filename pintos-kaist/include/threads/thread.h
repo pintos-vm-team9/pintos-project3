@@ -157,6 +157,17 @@ struct thread {
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
+	void *rsp_stack; //stack grow에 사용
+	void *stack_bottom;
+
+	struct thread_file { //project 3
+		struct file* file;
+		int fd;
+		struct list_elem elem;
+		int dup_tag;
+		int dup_cnt;
+		int std;
+	};
 #endif
 
 	/* Owned by thread.c. */

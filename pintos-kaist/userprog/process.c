@@ -282,6 +282,10 @@ process_exec (void *f_name) {
 	
 	/* We first kill the current context */
 	process_cleanup ();
+
+	#ifdef VM
+	supplemental_page_table_init(&thread_current()->spt);
+	#endif
 	char *file_name = f_name;
 	success = load (file_name, &_if);
 
@@ -515,7 +519,7 @@ struct ELF64_PHDR {
 #define ELF ELF64_hdr
 #define Phdr ELF64_PHDR
 
-static bool setup_stack (struct intr_frame *if_);
+// static bool setup_stack (struct intr_frame *if_);
 static bool validate_segment (const struct Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		uint32_t read_bytes, uint32_t zero_bytes,
@@ -733,6 +737,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+		// Project 3.2_anonymous page
+		struct box *box = (struct box*)malloc(sizeof(struct box));
+
+		box->file = file;
+		box->ofs = ofs;
+		box->page_read_bytes = page_read_bytes;
+		// Project 3.2_end
+		
 		/* Get a page of memory. */
 		uint8_t *kpage = palloc_get_page (PAL_USER);
 		if (kpage == NULL)
@@ -756,6 +768,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
+		// Project 3.2_anonymous page
+		ofs += page_read_bytes;
+		// Project 3.2_end
 	}
 	return true;
 }
@@ -801,10 +816,29 @@ install_page (void *upage, void *kpage, bool writable) {
  * upper block. */
 
 static bool
-lazy_load_segment (struct page *page, void *aux) {
+lazy_load_segment (struct page *page, void *aux) { //projec3 구현
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+
+	//페이지가 처음 참조될 때(pf 발생 시) 파일에서 페이지를 읽어 메모리에 로드하는 역할
+
+	struct file *file =((struct box *)aux)->file; //aux인자로 가져온 box 구조체에서 파일 정보(file)
+	off_t ofs = ((struct box *)aux)->ofs; //파일 오프셋(ofs)
+	size_t page_read_bytes = ((struct box *)aux)->page_read_bytes; //읽을 바이트 수
+	size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+	file_seek(file, ofs);
+
+	if(file_read(file, page->frame->kva, page_read_bytes) != (int) page_read_bytes){ //file을 page_read_bytes 만큼 읽고 page->frame->kva에 저장
+		palloc_free_page(page->frame->kva); //읽기 실패한 경우 할당된 페이지 해제 후
+		return false; //false 반환
+	}
+	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes); //page->frame->kva의 page_read_bytes이후 부분을 0으로 채웁니다.
+	file_close(file);
+	free(file);
+	return true; //성공적으로 페이지를 읽고 true 반환
+
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -836,6 +870,13 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
+		// Project 3.2_anonymous page
+		struct box *box = (struct box*)malloc(sizeof(struct box));
+
+		box->file = file;
+		box->ofs = ofs;
+		box->page_read_bytes = page_read_bytes;
+		// Project 3.2_end
 		void *aux = NULL;
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
@@ -845,12 +886,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
+
+		// Project 3.2_anonymous page
+		ofs += page_read_bytes;
 	}
 	return true;
 }
 
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */
-static bool
+bool
 setup_stack (struct intr_frame *if_) {
 	bool success = false;
 	void *stack_bottom = (void *) (((uint8_t *) USER_STACK) - PGSIZE);
@@ -859,6 +903,14 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
+	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, 1)){
+		success = vm_claim_page(stack_bottom);
+
+		if(success){
+			if_->rsp = USER_STACK;
+			thread_current()->stack_bottom = stack_bottom;
+		}
+	}
 
 	return success;
 }

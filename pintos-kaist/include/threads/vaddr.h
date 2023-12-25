@@ -56,4 +56,21 @@
 	((uint64_t) (vaddr) - (uint64_t) KERN_BASE);\
 })
 
+//project 3 추가
+struct bitmap *swap_table; //swap 영역을 관리하기 위한 비트맵으로 디스크에 저장되므로, 페이지당 디스크 섹터 수를 알아야 함
+
+// static bool
+// lazy_load_file (struct page* page, void* aux){
+// 	struct mmap_info* mi = (struct mmap_info*) aux;
+// 	file_seek (mi->file, mi->offset);
+// 	page -> file.size = file_read (mi->file, page->va, mi->read_bytes);
+// 	page -> file.ofs = mi->offset;
+// 	if (page->file.size != PGSIZE){
+// 		memset (page->va + page->file.size, 0, PGSIZE - page->file.size);
+// 	}
+// 	pml4_set_dirty (thread_current()->pml4, page->va, false);
+// 	free(mi);
+// 	return true;
+// }
+
 #endif /* threads/vaddr.h */

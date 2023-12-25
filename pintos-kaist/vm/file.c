@@ -20,6 +20,8 @@ vm_file_init (void) {
 }
 
 /* Initialize the file backed page */
+/* 파일에 백업된 페이지 초기화 */
+// page: 초기화할 페이지 포인터, type: 페이지 유형, kba: 페이지 가상 주소
 bool
 file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 	/* Set up the handler */
@@ -50,6 +52,23 @@ file_backed_destroy (struct page *page) {
 void *
 do_mmap (void *addr, size_t length, int writable,
 		struct file *file, off_t offset) {
+	//assume all parameter errors are handled in syscall.c
+	off_t ofs;
+	uint64_t read_bytes;
+	for (uint64_t i = 0; i < length; i += PGSIZE){
+		struct mmap_info* mi = malloc (sizeof (struct mmap_info));
+		ofs = offset + i;
+		read_bytes = length - i >= PGSIZE ? PGSIZE : length -i;
+		mi->file = file_reopen (file);
+		mi->offset = ofs;
+		mi->read_bytes = read_bytes;
+		vm_alloc_page_with_initializer (VM_FILE, (void*) ((uint64_t) addr + i), writable, lazy_load_file, (void*) mi);
+	}
+	struct mmap_file_info* mfi = malloc (sizeof (struct mmap_file_info));
+	mfi->start = (uint64_t) addr;
+	mfi->end = (uint64_t) pg_round_down((uint64_t) addr + length -1);
+	list_push_back(&mmap_file_list, &mfi->elem);
+	return addr;
 }
 
 /* Do the munmap */

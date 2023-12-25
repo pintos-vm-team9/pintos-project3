@@ -1,0 +1,12 @@
+{
+	"configurations":[
+		{
+			"name":"VM 모드",
+			"defines":["USERPROG","VM"], //여기 원하는 mecro 추가
+			"includePath":[
+				"${workspaceFolder}/**"
+			]
+		}
+	],
+	"version":4
+}

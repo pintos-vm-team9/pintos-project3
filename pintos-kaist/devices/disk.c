@@ -183,12 +183,14 @@ disk_print_stats (void) {
 1:1 - swap
 */
 struct disk *
-disk_get (int chan_no, int dev_no) {
+disk_get (int chan_no, int dev_no) { //지정된 채널과 장치 번호에 해당하는 디스크 반환하는 역할
+//chan_no : 채널 번호, dev_no: 장치 번호(0: 마스터, 1:슬레이브)
 	ASSERT (dev_no == 0 || dev_no == 1);
 
 	if (chan_no < (int) CHANNEL_CNT) {
-		struct disk *d = &channels[chan_no].devices[dev_no];
-		if (d->is_ata)
+		struct disk *d = &channels[chan_no].devices[dev_no]; //channels 배열에서 지정된 채널과 장치 번호에 해당하는 디스크를 가져옴
+		//disk * = 디스크 포인터
+		if (d->is_ata) //디스크 유형이 ata인지
 			return d;
 	}
 	return NULL;

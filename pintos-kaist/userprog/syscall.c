@@ -128,9 +128,31 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE:
 			sys_close(f->R.rdi);
 			break;
+		case SYS_MMAP: //project 3 추가
+			f->R.rax = (uint64_t) mmap ((void*) f->R.rdi, (size_t) f->R.rsi, (int) f->R.rdx, (int) f->R.r10, (off_t) f->R.r8);
+			break;
 	}
 }
 
+//project 3 추가
+static void*
+mmap (void *addr, size_t length, int writable, int fd, off_t offset){
+	//Handle all parameter error and pass it to do_mmap
+	if (addr == 0 || (!is_user_vaddr(addr))) return NULL;
+	if ((uint64_t)addr % PGSIZE != 0) return NULL;
+	if (offset % PGSIZE != 0) return NULL;
+	if ((uint64_t)addr + length == 0) return NULL;
+	if (!is_user_vaddr((uint64_t)addr + length)) return NULL;
+	for (uint64_t i = (uint64_t) addr; i < (uint64_t) addr + length; i += PGSIZE){
+		if (spt_find_page (&thread_current() -> spt, (void*) i)!=NULL) return NULL;
+	}
+	struct thread_file* tf = process_get_file (fd);
+	if (tf == NULL) return NULL;
+	if (tf->std == 0 || tf->std == 1) return NULL;
+	if (length == 0) return NULL;
+	struct file* file = tf->file;
+	return do_mmap(addr, length, writable, file, offset);
+}
 
 void
 sys_halt(void){

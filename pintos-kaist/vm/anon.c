@@ -17,20 +17,28 @@ static const struct page_operations anon_ops = {
 	.type = VM_ANON,
 };
 
+const size_t SECTORS_PER_PAGE = 8; // PGSIZE / DISK_SECTOR_SIZE; disk_sector_size 값이 어디 있는거지?
 /* Initialize the data for anonymous pages */
 void
 vm_anon_init (void) {
 	/* TODO: Set up the swap_disk. */
-	swap_disk = NULL;
+	// swap_disk = NULL;
+	swap_disk = disk_get(1,1); //디스크에서 swap 영역을 가져와!
+	size_t swap_size = disk_size(swap_disk)/SECTORS_PER_PAGE; //나눠주는게 PGSIZE/DISK_SECTOR_SIZE인데 에러나서 임의로.. 4랑 512할당...
+	swap_table = bitmap_create(swap_size);
 }
 
 /* Initialize the file mapping */
 bool
 anon_initializer (struct page *page, enum vm_type type, void *kva) {
 	/* Set up the handler */
-	page->operations = &anon_ops;
+	struct uninit_page *uninit = &page->uninit;
+	memset(uninit, 0, sizeof(struct uninit_page));
 
+	page->operations = &anon_ops;
+	
 	struct anon_page *anon_page = &page->anon;
+	return true;
 }
 
 /* Swap in the page by read contents from the swap disk. */
