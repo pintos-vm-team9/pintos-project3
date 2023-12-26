@@ -11,4 +11,8 @@ void process_exit (void);
 void process_activate (struct thread *next);
 bool duplicate_pte (uint64_t *pte, void *va, void *aux);
 bool install_page (void *upage, void *kpage, bool writable);
+bool setup_stack (struct intr_frame *if_);
+
+static bool lazy_load_segment (struct page *page, void *aux);
+
 #endif /* userprog/process.h */

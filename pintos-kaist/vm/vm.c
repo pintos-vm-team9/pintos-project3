@@ -5,6 +5,8 @@
 #include "vm/inspect.h"
 #include "userprog/process.h"
 
+static void spt_destroy (struct hash_elem *e, void *aux UNUSED);
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
@@ -262,15 +264,53 @@ bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
 
-	if (dst == NULL || src == NULL) {
-		return false;
-	}
+	// if (dst == NULL || src == NULL) {
+	// 	return false;
+	// }
 
-	// 구조체 자체를 복사
-	memcpy(dst, src, sizeof(struct supplemental_page_table));
+	// // 구조체 자체를 복사
+	// memcpy(dst, src, sizeof(struct supplemental_page_table));
 
 	// hash_table을 복사
 	// return hash_copy(&dst->hash_table, &src->hash_table);;
+
+	// Project 3.2_anonymous page
+	struct hash_iterator i;
+	hash_first(&i, &src->hash_table);
+	while(hash_next(&i))
+	{
+		
+		struct page *parent_page = hash_entry(hash_cur(&i), struct page, page_elem);
+
+		enum vm_type type = page_get_type(parent_page);
+		void *upage = parent_page->va;
+		bool writable = parent_page->writable;
+		vm_initializer *init = parent_page->uninit.init;
+		void* aux = parent_page->uninit.aux;
+
+		if(parent_page->uninit.type & VM_MARKER_0)
+		{
+			setup_stack(&thread_current()->tf);
+		}
+		else if(parent_page->operations->type == VM_UNINIT)
+		{
+			if(!vm_alloc_page_with_initializer(type, upage, writable, init, aux))
+				return false;
+		}
+		else
+		{ // UNIT이 아니면 spt 추가만
+			if(!vm_alloc_page(type,upage, writable))
+				return false;
+			if(!vm_claim_page(upage))
+				return false;
+		}
+		if(parent_page->operations->type != VM_UNINIT)
+		{
+			struct page* child_page = spt_find_page(dst,upage);
+			memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+		}
+	}
+	return true;
 }
 
 /* Free the resource hold by the supplemental page table */
@@ -278,6 +318,26 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+
+	struct hash_iterator i;
+	hash_first(&i, &spt->hash_table);
+	while(hash_next(&i))
+	{
+		struct page *page = hash_entry(hash_cur(&i), struct page, page_elem);
+		if(page->operations->type == VM_FILE)
+		{
+			// do_munmap(page->va);
+		}
+	}
+	// hash_destroy(&spt->hash_table, spt_destroy);
+}
+
+static void
+spt_destroy (struct hash_elem *e, void *aux UNUSED){
+	struct page *page = hash_entry (e, struct page, page_elem);
+	ASSERT (page != NULL);
+	destroy (page);
+	free (page);
 }
 
 uint64_t hash (const struct hash_elem *h_elem, void *aux UNUSED){

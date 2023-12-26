@@ -35,4 +35,6 @@ void file_seek (struct file *, off_t);
 off_t file_tell (struct file *);
 off_t file_length (struct file *);
 
+//project 3 +
+// static void* mmap (void *addr, size_t length, int writable, int fd, off_t offset);
 #endif /* filesys/file.h */

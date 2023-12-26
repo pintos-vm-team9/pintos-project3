@@ -515,7 +515,7 @@ struct ELF64_PHDR {
 #define ELF ELF64_hdr
 #define Phdr ELF64_PHDR
 
-static bool setup_stack (struct intr_frame *if_);
+bool setup_stack (struct intr_frame *if_);
 static bool validate_segment (const struct Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		uint32_t read_bytes, uint32_t zero_bytes,
@@ -848,6 +848,8 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* 나머지 0을 채우는 용도 */
 	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
 
+	// file_close(file);
+	// free(file);
 	return true;
 
 }
@@ -900,7 +902,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 }
 
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */
-static bool
+bool
 setup_stack (struct intr_frame *if_) {
 	bool success = false;
 	void *stack_bottom = (void *) (((uint8_t *) USER_STACK) - PGSIZE);

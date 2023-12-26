@@ -70,6 +70,14 @@ struct frame {
 	struct page *page;
 };
 
+// + project 3 +
+struct lazy_load_info {
+	struct file *file;
+	size_t page_read_bytes;
+	size_t page_zero_bytes;
+	off_t offset;
+};
+
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
  * Put the table of "method" into the struct's member, and

@@ -1,0 +1,12 @@
+{
+	"configurations":[
+		{
+			"name":"VM 모드",
+			"defines":["USERPROG","VM"],
+			"includePath":[
+				"${workspaceFolder}/**"
+			]
+		}
+	],
+	"version":4
+}
