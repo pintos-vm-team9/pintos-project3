@@ -38,6 +38,7 @@ enum vm_type {
 struct page_operations;
 struct thread;
 
+
 #define VM_TYPE(type) ((type) & 7)
 
 /* The representation of "page".
@@ -68,6 +69,7 @@ struct page {
 struct frame {
 	void *kva;
 	struct page *page;
+	struct list_elem frame_elem;
 };
 
 // + project 3 +
