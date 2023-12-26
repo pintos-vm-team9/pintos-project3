@@ -326,17 +326,16 @@ supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 		struct page *page = hash_entry(hash_cur(&i), struct page, page_elem);
 		if(page->operations->type == VM_FILE)
 		{
-			// do_munmap(page->va);
+			do_munmap(page->va);
 		}
 	}
-	// hash_destroy(&spt->hash_table, spt_destroy);
+	hash_destroy(&spt->hash_table, spt_destroy);
 }
 
 static void
 spt_destroy (struct hash_elem *e, void *aux UNUSED){
 	struct page *page = hash_entry (e, struct page, page_elem);
-	ASSERT (page != NULL);
-	destroy (page);
+	// destroy (page);
 	free (page);
 }
 
