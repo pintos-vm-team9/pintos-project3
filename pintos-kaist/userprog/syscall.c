@@ -47,6 +47,8 @@ void sys_seek(int fd, unsigned position);
 unsigned sys_tell(int fd);
 void sys_close(int fd);
 bool pml4_for_each (uint64_t *pml4, pte_for_each_func *func, void *aux);
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
+
 void
 syscall_init (void) {
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
@@ -119,10 +121,49 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE:
 			sys_close(f->R.rdi);
 			break;
-		
+		// project 3
+        case SYS_MMAP:
+            f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+            break;
+        case SYS_MUNMAP:
+            munmap(f->R.rdi);
+            break;
+		default:
+		 	sys_exit(-1);
+			break;
 	}
 }
 
+// + project 3 +
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset){
+    // offset이 정렬되지 않았을 때
+    if (offset % PGSIZE != 0){
+        return NULL;
+    }
+    if(pg_round_down(addr) != addr || is_kernel_vaddr(addr) || addr == NULL || (long long)length <=0)
+        return NULL;
+    // console input, output은 mapping x
+    if(fd == 0 || fd == 1)
+        sys_exit(-1);
+    // overlap
+    if(spt_find_page(&thread_current()->spt, addr))
+        return NULL;
+
+	
+    struct file *target = process_get_file(fd);
+    if(target == NULL)
+        return NULL;
+
+    void *ret = do_mmap(addr, length, writable, target, offset);
+
+    return ret;
+}
+
+void munmap(void *addr){
+    do_munmap(addr);
+}
+
+// end project 3 +
 
 void
 sys_halt(void){

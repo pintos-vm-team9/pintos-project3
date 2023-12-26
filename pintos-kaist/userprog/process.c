@@ -698,6 +698,17 @@ validate_segment (const struct Phdr *phdr, struct file *file) {
 	return true;
 }
 
+// + project 3 +
+struct file* process_get_file(int fd){
+    struct thread *curr = thread_current();
+    struct file* fd_file = curr->fdt[fd];
+
+    if (fd_file)
+        return fd_file;
+    else
+        return NULL;
+}
+
 #ifndef VM
 /* Codes of this block will be ONLY USED DURING project 2.
  * If you want to implement the function for whole project 2, implement it
@@ -799,6 +810,7 @@ install_page (void *upage, void *kpage, bool writable) {
 }
 
 
+
 #else
 
 struct file_data {
@@ -821,7 +833,7 @@ install_page_vm (void *upage, void *kpage, bool writable) {
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-static bool
+bool
 lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */

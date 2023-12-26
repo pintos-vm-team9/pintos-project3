@@ -62,11 +62,11 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		switch(VM_TYPE(type)){
 			case VM_ANON:
 				// printf("VM_ANON\n");
-				uninit_new(tmp_page, upage, init, type, aux, anon_initializer);
+				uninit_new(tmp_page, pg_round_down(upage), init, type, aux, anon_initializer);
 				break;
 			case VM_FILE:
 				// printf("VM_FILE\n");
-				uninit_new(tmp_page, upage, init, type, aux, file_backed_initializer);
+				uninit_new(tmp_page, pg_round_down(upage), init, type, aux, file_backed_initializer);
 				break;
 			default:
 				free(tmp_page);
@@ -90,25 +90,35 @@ struct page *spt_find_page (struct supplemental_page_table *spt UNUSED, void *va
     대응되는 페이지 구조체를 찾아서 반환합니다. 실패했을 경우 NULL를 반환합니다.
     */    
    	// printf("spt_find_page\n");
-    struct page *page = NULL;
+    // struct page *page = NULL;
 
-    struct page *tmp_page = (struct page *)malloc(sizeof(struct page));
-	// struct page *tmp_page;
+    // struct page *tmp_page = (struct page *)malloc(sizeof(struct page));
+	// // struct page *tmp_page;
 
-    if (tmp_page == NULL)
-        return NULL;
+    // if (tmp_page == NULL)
+    //     return NULL;
 
-    tmp_page->va = pg_round_down (va);
-    struct hash_elem *target_hash_elem = hash_find(&spt->hash_table, &tmp_page->page_elem);
+    // tmp_page->va = pg_round_down (va);
+    // struct hash_elem *target_hash_elem = hash_find(&spt->hash_table, &tmp_page->page_elem);
 
-    if (target_hash_elem == NULL)
-        return NULL;
+    // if (target_hash_elem == NULL)
+    //     return NULL;
 
-    page = hash_entry(target_hash_elem, struct page, page_elem);
+    // page = hash_entry(target_hash_elem, struct page, page_elem);
 
-    free(tmp_page);
+    // free(tmp_page);
 
-    return page;
+    // return page;
+
+	struct page* page = (struct page*)malloc(sizeof(struct page));
+    struct hash_elem *e;
+
+    page->va = pg_round_down(va);  // va가 가리키는 가상 페이지의 시작 포인트(오프셋이 0으로 설정된 va) 반환
+    e = hash_find(&spt->hash_table, &page->page_elem);
+
+    free(page);
+
+    return e != NULL ? hash_entry(e, struct page, page_elem) : NULL;
 }
 
 /* Insert PAGE into spt with validation. */
