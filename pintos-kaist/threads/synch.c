@@ -222,28 +222,28 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!lock_held_by_current_thread (lock));
 	struct thread *cur = thread_current();
 	if(!thread_mlfqs){
-	if(lock->holder){ 
-		// if(lock->holder->priority > cur->priority){ // lock->holder와 현재 스레드간의 priority 비교는 필수인지
-		// }
-		cur->wait_on_lock = lock;
-		list_insert_ordered(&lock->holder->donations, &cur->d_elem, compare_donation_priority, NULL);
-		//list_insert_ordered(&(thread_current()->wait_on_lock->holder->donations), &(thread_current()->d_elem),compare_donation_priority,NULL);
-		
-		// while(cur->wait_on_lock){ // wait_on_lock이 존재한다면,
-		// 	cur->wait_on_lock->holder->priority = cur->priority;
-		// 	cur = cur->wait_on_lock->holder;
-		// }
-		struct thread *start = thread_current();
-		while(start->wait_on_lock){ // wait_on_lock이 존재한다면 재귀 수행 -> nested donation!
-			struct thread *holder = start->wait_on_lock->holder;
-			holder->priority = start->priority;
-			start = holder;
+		if(lock->holder){ 
+			// if(lock->holder->priority > cur->priority){ // lock->holder와 현재 스레드간의 priority 비교는 필수인지
+			// }
+			cur->wait_on_lock = lock;
+			list_insert_ordered(&lock->holder->donations, &cur->d_elem, compare_donation_priority, NULL);
+			//list_insert_ordered(&(thread_current()->wait_on_lock->holder->donations), &(thread_current()->d_elem),compare_donation_priority,NULL);
+			
+			// while(cur->wait_on_lock){ // wait_on_lock이 존재한다면,
+			// 	cur->wait_on_lock->holder->priority = cur->priority;
+			// 	cur = cur->wait_on_lock->holder;
+			// }
+			struct thread *start = thread_current();
+			while(start->wait_on_lock){ // wait_on_lock이 존재한다면 재귀 수행 -> nested donation!
+				struct thread *holder = start->wait_on_lock->holder;
+				holder->priority = start->priority;
+				start = holder;
+			}
 		}
 	}
-	}
 	sema_down (&lock->semaphore);
-	lock->holder = cur;
 	cur->wait_on_lock = NULL;
+	lock->holder = cur;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -279,26 +279,26 @@ lock_release (struct lock *lock) {
 	//if(thread_current()->original_priority != thread_get_priority) thread_set_priority(thread_current()->original_priority);
 	
 	if(!thread_mlfqs){
-	struct list_elem *e;
-	thread_current()->priority = thread_current()->original_priority;
-	
-	for (e = list_begin (&thread_current()->donations); e != list_end (&thread_current()->donations); e = list_next (e)){
-		// if(list_entry(e,struct thread, d_elem)->wait_on_lock == lock){
-		// 	//list_remove(&e);
-		// 	list_remove(&list_entry(e,struct thread,d_elem)->d_elem);
-		// }
-		struct thread *temp = list_entry (e, struct thread, d_elem);
-		if (temp->wait_on_lock == lock)
-			list_remove (&temp->d_elem);
-	}
-    struct thread *cur = thread_current ();
-	cur->priority = cur->original_priority;
+		struct list_elem *e;
+		thread_current()->priority = thread_current()->original_priority;
+		
+		for (e = list_begin (&thread_current()->donations); e != list_end (&thread_current()->donations); e = list_next (e)){
+			// if(list_entry(e,struct thread, d_elem)->wait_on_lock == lock){
+			// 	//list_remove(&e);
+			// 	list_remove(&list_entry(e,struct thread,d_elem)->d_elem);
+			// }
+			struct thread *temp = list_entry (e, struct thread, d_elem);
+			if (temp->wait_on_lock == lock)
+				list_remove (&temp->d_elem);
+		}
+		struct thread *cur = thread_current ();
+		cur->priority = cur->original_priority;
 
-	// donations 중 맥스값과 오리지널 값 비교후 최대값 설정
-	if(!list_empty(&cur->donations)){
-		struct thread* max_thread = list_entry(list_max(&cur->donations,compare_donation_priority,NULL),struct thread,d_elem);
-		cur->priority = MAX(cur->priority,max_thread->priority);
-	}
+		// donations 중 맥스값과 오리지널 값 비교후 최대값 설정
+		if(!list_empty(&cur->donations)){
+			struct thread* max_thread = list_entry(list_max(&cur->donations,compare_donation_priority,NULL),struct thread,d_elem);
+			cur->priority = MAX(cur->priority,max_thread->priority);
+		}
 	}
 
 	// if (!list_empty (&cur->donations)) {
@@ -310,7 +310,10 @@ lock_release (struct lock *lock) {
     // }
 
 	lock->holder = NULL;
+
 	sema_up (&lock->semaphore);
+	thread_test_preemption ();
+
 }
 
 /* Returns true if the current thread holds LOCK, false

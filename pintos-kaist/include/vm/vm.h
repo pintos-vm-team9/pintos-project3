@@ -52,6 +52,7 @@ struct page {
 	/* Your implementation */
 	struct hash_elem page_elem;
 	bool writable;
+	struct file_data *file_data;
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union {
@@ -62,6 +63,12 @@ struct page {
 		struct page_cache page_cache;
 #endif
 	};
+};
+
+struct file_data {
+	struct file *file;
+	off_t ofs;
+	size_t read_bytes;
 };
 
 /* The representation of "frame" */
@@ -119,7 +126,9 @@ enum vm_type page_get_type (struct page *page);
 
 bool less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 uint64_t hash (const struct hash_elem *h_elem, void *aux);
+void destructor (struct hash_elem *h_elem, void * aux UNUSED);
 bool insert_page_bool(struct hash *hash_table, struct page *p);
 bool delete_page_bool(struct hash *hash_table, struct page *p);
+void spt_dealloc(struct hash_elem *e, void *aux);
 
 #endif  /* VM_VM_H */

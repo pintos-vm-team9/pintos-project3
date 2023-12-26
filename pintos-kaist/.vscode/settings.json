@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "anon.h": "c",
+        "palloc.h": "c",
+        "malloc.h": "c",
+        "stdbool.h": "c",
+        "file.h": "c",
+        "process.h": "c",
+        "thread.h": "c",
+        "synch.h": "c",
+        "list.h": "c",
+        "off_t.h": "c",
+        "mmu.h": "c"
+    }
+}

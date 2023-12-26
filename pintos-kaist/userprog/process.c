@@ -430,7 +430,8 @@ process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
-	supplemental_page_table_kill (&curr->spt);
+	if(!hash_empty(&curr->spt.hash_table))
+		supplemental_page_table_kill (&curr->spt);
 #endif
 
 	uint64_t *pml4;
@@ -799,11 +800,6 @@ install_page (void *upage, void *kpage, bool writable) {
 
 #else
 
-struct file_data {
-	struct file *file;
-	off_t ofs;
-	size_t read_bytes;
-};
 
 bool
 install_page_vm (void *upage, void *kpage, bool writable) {

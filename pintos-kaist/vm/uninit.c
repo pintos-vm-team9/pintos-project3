@@ -65,4 +65,6 @@ uninit_destroy (struct page *page) {
 	struct uninit_page *uninit UNUSED = &page->uninit;
 	/* TODO: Fill this function.
 	 * TODO: If you don't have anything to do, just return. */
+	struct file_data * info = (struct file_data *)(uninit->aux);
+	file_close(&info->file);
 }

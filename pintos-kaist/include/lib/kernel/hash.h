@@ -96,5 +96,6 @@ bool hash_empty (struct hash *);
 uint64_t hash_bytes (const void *, size_t);
 uint64_t hash_string (const char *);
 uint64_t hash_int (int);
+bool hash_copy (struct hash *, struct hash *);
 
 #endif /* lib/kernel/hash.h */
