@@ -67,6 +67,11 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 
+	// + project 3 +
+	#ifdef VM
+        thread_current()->rsp_stack = f->rsp; 
+    #endif
+
 	switch(f->R.rax){
 		case SYS_HALT:
 			sys_halt(); // done

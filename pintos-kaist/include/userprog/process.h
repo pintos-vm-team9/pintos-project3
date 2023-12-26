@@ -15,4 +15,11 @@ bool setup_stack (struct intr_frame *if_);
 
 static bool lazy_load_segment (struct page *page, void *aux);
 
+// + project 3 +
+struct container{
+    struct file *file;
+    off_t offset;
+    size_t page_read_bytes;
+};
+
 #endif /* userprog/process.h */

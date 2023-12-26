@@ -128,32 +128,33 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 	return true;
 }
 
+// + project 3 +
 struct list_elem* start;
 struct list frame_table;
 
 /* Get the struct frame, that will be evicted. */
 static struct frame *
-vm_get_victim (void) { 
+vm_get_victim (void) {  //frame_table 때문에 에러나는데????????
 	struct frame *victim = NULL;
 	 /* TODO: The policy for eviction is up to you. */
 	// + project 3 +
     struct thread *curr = thread_current();
     struct list_elem *e = start;
 
-    for(start = e; start != list_end(&frame_table); start = list_next(start)){
-        victim = list_entry(start, struct frame, frame_elem);
-        if (pml4_is_accessed(curr->pml4, victim->page->va))
-            pml4_set_accessed(curr->pml4, victim->page->va,0);
-        else
-            return victim;
-    }
-    for(start = list_begin(&frame_table); start != e; start = list_next(start)){
-        victim = list_entry(start, struct frame, frame_elem);
-        if(pml4_is_accessed(curr->pml4, victim->page->va))
-            pml4_set_accessed(curr->pml4, victim->page->va, 0);
-        else
-            return victim;
-    }
+    // for(start = e; start != list_end(&frame_table); start = list_next(start)){
+    //     victim = list_entry(start, struct frame, frame_elem);
+    //     if (pml4_is_accessed(curr->pml4, victim->page->va))
+    //         pml4_set_accessed(curr->pml4, victim->page->va,0);
+    //     else
+    //         return victim;
+    // }
+    // for(start = list_begin(&frame_table); start != e; start = list_next(start)){
+    //     victim = list_entry(start, struct frame, frame_elem);
+    //     if(pml4_is_accessed(curr->pml4, victim->page->va))
+    //         pml4_set_accessed(curr->pml4, victim->page->va, 0);
+    //     else
+    //         return victim;
+    // }
 
     return victim;
 
@@ -183,10 +184,11 @@ vm_get_frame (void) {
 		return vm_evict_frame();
 	}
 
- 	frame->kva = physical_address;
+	frame->kva = physical_address;
+	
+	//frame_table 때문에 에러나는데????????
+	// list_push_back(&frame_table, &frame->frame_elem);
  	frame->page = NULL;
-
-	list_push_back(&frame_table, &frame->frame_elem);
 
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
@@ -197,6 +199,11 @@ vm_get_frame (void) {
 static void
 vm_stack_growth (void *addr UNUSED) {
 	// vm_alloc_page(VM_ANON | VM_MARKER_0, addr, true);
+	if(vm_alloc_page(VM_ANON | VM_MARKER_0, addr, 1)){
+        vm_claim_page(addr);
+        thread_current()->stack -= PGSIZE;
+    }
+
 }
 
 /* Handle the fault on write_protected page */
