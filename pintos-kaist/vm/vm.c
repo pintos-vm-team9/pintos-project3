@@ -270,7 +270,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 	memcpy(dst, src, sizeof(struct supplemental_page_table));
 
 	// hash_table을 복사
-	return hash_copy(&dst->hash_table, &src->hash_table);;
+	// return hash_copy(&dst->hash_table, &src->hash_table);;
 }
 
 /* Free the resource hold by the supplemental page table */

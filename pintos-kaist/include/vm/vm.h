@@ -115,8 +115,6 @@ void vm_dealloc_page (struct page *page);
 bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
 
-// 강철구
-
 bool less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 uint64_t hash (const struct hash_elem *h_elem, void *aux);
 bool insert_page_bool(struct hash *hash_table, struct page *p);
