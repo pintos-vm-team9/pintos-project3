@@ -7,6 +7,10 @@
 
 static void spt_destroy (struct hash_elem *e, void *aux UNUSED);
 
+// + project 3 +
+struct list_elem* start;
+struct list frame_table;
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
@@ -19,6 +23,8 @@ vm_init (void) {
 	register_inspect_intr ();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+	list_init(&frame_table);		  
+	start = list_begin(&frame_table);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -138,9 +144,7 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 	return true;
 }
 
-// + project 3 +
-struct list_elem* start;
-struct list frame_table;
+
 
 /* Get the struct frame, that will be evicted. */
 static struct frame *
@@ -151,20 +155,20 @@ vm_get_victim (void) {  //frame_table 때문에 에러나는데????????
     struct thread *curr = thread_current();
     struct list_elem *e = start;
 
-    // for(start = e; start != list_end(&frame_table); start = list_next(start)){
-    //     victim = list_entry(start, struct frame, frame_elem);
-    //     if (pml4_is_accessed(curr->pml4, victim->page->va))
-    //         pml4_set_accessed(curr->pml4, victim->page->va,0);
-    //     else
-    //         return victim;
-    // }
-    // for(start = list_begin(&frame_table); start != e; start = list_next(start)){
-    //     victim = list_entry(start, struct frame, frame_elem);
-    //     if(pml4_is_accessed(curr->pml4, victim->page->va))
-    //         pml4_set_accessed(curr->pml4, victim->page->va, 0);
-    //     else
-    //         return victim;
-    // }
+    for(start = e; start != list_end(&frame_table); start = list_next(start)){
+        victim = list_entry(start, struct frame, frame_elem);
+        if (pml4_is_accessed(curr->pml4, victim->page->va))
+            pml4_set_accessed(curr->pml4, victim->page->va,0);
+        else
+            return victim;
+    }
+    for(start = list_begin(&frame_table); start != e; start = list_next(start)){
+        victim = list_entry(start, struct frame, frame_elem);
+        if(pml4_is_accessed(curr->pml4, victim->page->va))
+            pml4_set_accessed(curr->pml4, victim->page->va, 0);
+        else
+            return victim;
+    }
 
     return victim;
 
