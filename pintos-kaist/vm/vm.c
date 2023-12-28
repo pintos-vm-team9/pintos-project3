@@ -117,6 +117,7 @@ struct page *spt_find_page (struct supplemental_page_table *spt UNUSED, void *va
     // return page;
 
 	struct page* page = (struct page*)malloc(sizeof(struct page));
+	// struct page* page;
     struct hash_elem *e;
 
     page->va = pg_round_down(va);  // va가 가리키는 가상 페이지의 시작 포인트(오프셋이 0으로 설정된 va) 반환
@@ -210,14 +211,15 @@ vm_get_frame (void) {
 }
 
 /* Growing the stack. */
-static void
+static bool
 vm_stack_growth (void *addr UNUSED) {
 	// vm_alloc_page(VM_ANON | VM_MARKER_0, addr, true);
 	if(vm_alloc_page(VM_ANON | VM_MARKER_0, addr, 1)){
-        vm_claim_page(addr);
+        // vm_claim_page(addr);
         thread_current()->stack -= PGSIZE;
+		return true;
     }
-
+	return false;
 }
 
 /* Handle the fault on write_protected page */
@@ -234,27 +236,47 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	
 	void * fpage_addr = pg_round_down(addr);
-
-	struct page *page = spt_find_page(spt, fpage_addr);
-	/* TODO: Validate the fault */
-	/* TODO: Your code goes here */
-	 if(is_kernel_vaddr(addr)){
+	if(is_kernel_vaddr(addr)){
         return false;
     }
 
-    void *rsp_stack = is_kernel_vaddr(f->rsp) ? thread_current()->rsp_stack : f->rsp;
-    if(not_present){
-        if(!vm_claim_page(addr)){
-            if(rsp_stack - 8 <= addr && USER_STACK - 0x100000 <= addr && addr <= USER_STACK){
-                vm_stack_growth(thread_current()->stack - PGSIZE);
-                return true;
-            }
-            return false;
-        }
-        else
-            return true;
-    }
-    return false;
+	struct page *page = spt_find_page(spt, fpage_addr);
+
+    // void *rsp_stack = is_kernel_vaddr(f->rsp) ? thread_current()->rsp_stack : f->rsp;
+    // if(not_present){
+    //     if(!vm_claim_page(addr)){
+    //         if(rsp_stack - 8 <= addr && USER_STACK - 0x100000 <= addr && addr <= USER_STACK){
+    //             vm_stack_growth(thread_current()->stack - PGSIZE);
+    //             return true;
+    //         } else {
+	// 			return false;
+	// 		}
+    //     } else {
+	// 		return false;
+	// 	}
+    // }
+    // return vm_do_claim_page(page);
+
+	if (!page)
+	{
+		if (addr >= USER_STACK - (1 << 20) && USER_STACK > addr && addr >= f->rsp - 8 && addr < thread_current()->stack)
+		{
+			void *fpage = thread_current()->stack - PGSIZE;
+			if (vm_stack_growth(fpage))
+			{
+				page = spt_find_page(spt, fpage);
+			}
+			else
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return false;
+		}
+	}
+	return vm_do_claim_page(page);
 }
 
 /* Free the page.
@@ -308,16 +330,6 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
-
-	// if (dst == NULL || src == NULL) {
-	// 	return false;
-	// }
-
-	// // 구조체 자체를 복사
-	// memcpy(dst, src, sizeof(struct supplemental_page_table));
-
-	// hash_table을 복사
-	// return hash_copy(&dst->hash_table, &src->hash_table);;
 
 	// Project 3.2_anonymous page
 	struct hash_iterator i;
@@ -381,7 +393,8 @@ static void
 spt_destroy (struct hash_elem *e, void *aux UNUSED){
 	struct page *page = hash_entry (e, struct page, page_elem);
 	// destroy (page);
-	free (page);
+	// free (page);
+	vm_dealloc_page(page);
 }
 
 uint64_t hash (const struct hash_elem *h_elem, void *aux UNUSED){
@@ -391,7 +404,7 @@ uint64_t hash (const struct hash_elem *h_elem, void *aux UNUSED){
 }
 
 bool less (const struct hash_elem *a, const struct hash_elem *b, void *aux){
-
+	
 	struct page *page_a = hash_entry(a, struct page, page_elem);
 	struct page *page_b = hash_entry(b, struct page, page_elem);
 

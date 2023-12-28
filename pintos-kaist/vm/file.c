@@ -67,9 +67,10 @@ do_mmap (void *addr, size_t length, int writable,
         container->page_read_bytes = page_read_bytes;
 
         // 여기서 에러나 ㅜㅜ.ㅜ.ㅜ
-        // if(!vm_alloc_page_with_initializer(VM_FILE, addr, writable, lazy_load_segment, container)){ 
-        //     return NULL;
-        // }
+        if(!vm_alloc_page_with_initializer(VM_FILE, addr, writable, lazy_load_segment, container)){ 
+            free(container);
+			undo_mmap(ori_addr, addr);
+        }
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
         addr += PGSIZE;
@@ -78,6 +79,20 @@ do_mmap (void *addr, size_t length, int writable,
     }
     return ori_addr;
 
+}
+
+void *undo_mmap(void *initial_addr, void *addr)
+{
+	struct thread *curr_thread = thread_current();
+	struct supplemental_page_table *spt = &curr_thread->spt;
+	struct page *page;
+	while (initial_addr < addr)
+	{
+		page = spt_find_page(spt, addr);
+		spt_remove_page(spt, page);
+		initial_addr += PGSIZE;
+	}
+	return NULL;
 }
 
 /* Do the munmap */

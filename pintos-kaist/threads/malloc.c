@@ -208,10 +208,10 @@ free (void *p) {
 		if (d != NULL) {
 			/* It's a normal block.  We handle it here. */
 
-#ifndef NDEBUG
-			/* Clear the block to help detect use-after-free bugs. */
-			memset (b, 0xcc, d->block_size);
-#endif
+// #ifndef NDEBUG
+// 			/* Clear the block to help detect use-after-free bugs. */
+// 			memset (b, 0xcc, d->block_size);
+// #endif
 
 			lock_acquire (&d->lock);
 
