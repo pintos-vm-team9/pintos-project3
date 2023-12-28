@@ -205,70 +205,91 @@ error:
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
 void
-argument_stack(char **argv,int cnt,struct intr_frame* _if){
-	int i = 0;
-	// 1. argv 값 뒤에서부터 푸쉬
-	// 2. padding
-	// 3. sentinel
-	// 4. argv[cnt] ... argv[0] 주소 뒤에서부터 푸쉬
-	// 5. argv = argv[0] 주소를 저장한 곳의 주소 푸쉬
-	// 6. argc 푸쉬
-	// 7. return address(fake address) : 0 푸쉬
-	int *argv_addr[128];
-	for(int i = cnt - 1;i >= 0;i--){
-		//memcpy (void *dst_, const void *src_, size_t size)
-		_if->rsp -= strlen(argv[i]) + 1;
-		argv_addr[i] = _if->rsp;
-		memcpy(_if->rsp, argv[i],strlen(argv[i]) + 1); // 마지막 널문자
-	}
+argument_stack(char **argv,int argc,struct intr_frame* if_){
+	// int i = 0;
+	// // 1. argv 값 뒤에서부터 푸쉬
+	// // 2. padding
+	// // 3. sentinel
+	// // 4. argv[cnt] ... argv[0] 주소 뒤에서부터 푸쉬
+	// // 5. argv = argv[0] 주소를 저장한 곳의 주소 푸쉬
+	// // 6. argc 푸쉬
+	// // 7. return address(fake address) : 0 푸쉬
+	// int *argv_addr[128];
+	// for(int i = cnt - 1;i >= 0;i--){
+	// 	//memcpy (void *dst_, const void *src_, size_t size)
+	// 	_if->rsp -= strlen(argv[i]) + 1;
+	// 	argv_addr[i] = _if->rsp;
+	// 	memcpy(_if->rsp, argv[i],strlen(argv[i]) + 1); // 마지막 널문자
+	// }
 	
-	while((_if->rsp % 8)){ // 패딩 -> 8 단위
-		_if->rsp -= 1;
-		memset(_if->rsp,0,1);
-	}
-	// memset
-
-	_if->rsp -= 8;
-	// memset(_if->rsp,0,8); // sentinel
-
-	for(int i = cnt -1;i>=0;i--){
-		_if->rsp -= 8;
-		
-		memcpy(_if->rsp,&argv_addr[i],8); // why &?
-	}
+	// while((_if->rsp % 8)){ // 패딩 -> 8 단위
+	// 	_if->rsp -= 1;
+	// 	memset(_if->rsp,0,1);
+	// }
+	// // memset
 
 	// _if->rsp -= 8;
-	// memcpy(_if->rsp,argv,8);
-	_if->R.rsi = _if->rsp; // 공부 
+	// // memset(_if->rsp,0,8); // sentinel
+
+	// for(int i = cnt -1;i>=0;i--){
+	// 	_if->rsp -= 8;
+		
+	// 	memcpy(_if->rsp,&argv_addr[i],8); // why &?
+	// }
+
+	// // _if->rsp -= 8;
+	// // memcpy(_if->rsp,argv,8);
+	// _if->R.rsi = _if->rsp; // 공부 
 	
-	// _if->rsp -= 4;
-	// memcpy(_if->rsp,cnt,4);
-	_if->R.rdi = cnt;
+	// // _if->rsp -= 4;
+	// // memcpy(_if->rsp,cnt,4);
+	// _if->R.rdi = cnt;
 	
-	// fake address
-	_if->rsp -= 8;
-	memset(_if->rsp,0,8);
+	// // fake address
+	// _if->rsp -= 8;
+	// memset(_if->rsp,0,8);
+
+	int i;
+	char *argu_addr[128];
+	int argc_len;
+
+	for (i = argc - 1; i >= 0; i--)
+	{
+		argc_len = strlen(argv[i]);
+		if_->rsp = if_->rsp - (argc_len + 1);
+		memcpy(if_->rsp, argv[i], (argc_len + 1));
+		argu_addr[i] = if_->rsp;
+	}
+
+	while (if_->rsp % 8 != 0)
+	{
+		if_->rsp--;
+		memset(if_->rsp, 0, sizeof(uint8_t));
+	}
+
+	for (i = argc; i >= 0; i--)
+	{
+		if_->rsp = if_->rsp - 8;
+		if (i == argc)
+		{
+			memset(if_->rsp, 0, sizeof(char **));
+		}
+		else
+		{
+			memcpy(if_->rsp, &argu_addr[i], sizeof(char **));
+		}
+	}
+
+	if_->rsp = if_->rsp - 8;
+	memset(if_->rsp, 0, sizeof(void *));
+
+	if_->R.rdi = argc;
+	if_->R.rsi = if_->rsp + 8;
 }
 
 int
 process_exec (void *f_name) {
 	/* f_name 파싱 -> 인자로 넘겨줘야 함.. */
-	
-	// char *save_ptr;
-	// // char *token = strtok_r(f_name, " ", &save_ptr); // token = 'echo' 
-	// char *argv[128];
-
-	// int cnt = 0; 
-	// while (token != NULL) {
-	// 	argv[cnt] = token;
-	// 	token = strtok_r(NULL, " ", &save_ptr); // token = 'x'
-	// 	cnt++;
-	// }
-	//printf("\n\n%s\n\n",argv[0]);
-
-	// int argc = cnt; // 인자의 개수
-
-	//char *file_name = f_name;
 
 	bool success;
 	
@@ -282,17 +303,17 @@ process_exec (void *f_name) {
 	
 	/* We first kill the current context */
 	process_cleanup ();
+	
+	supplemental_page_table_init(&thread_current()->spt);
+
 	char *file_name = f_name;
 	success = load (file_name, &_if);
 
 	/* And then load the binary */
 	
 	// hex_dump(); // ?
-	//hex_dump(_if.rsp, _if.rsp,(USER_STACK - _if.rsp), true);
+	// hex_dump(_if.rsp, _if.rsp,(USER_STACK - _if.rsp), true);
 
-	//strlcpy(thread_current()->p_name,argv[0],sizeof(thread_current()->p_name) + 1);
-	// printf("cur thread process name : %s\n",thread_current()->p_name);
-	// printf("argv[0] = %s\n\n",argv[0]);
 	/* If load failed, quit. */
 	palloc_free_page (file_name); 
 	if (!success)
@@ -903,8 +924,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         file_data->ofs = ofs;
 
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
-					writable, lazy_load_segment, file_data))
+					writable, lazy_load_segment, file_data)){
+			free(file_data);
 			return false;
+		}
 
 		/* Advance. */
 		read_bytes -= page_read_bytes;
@@ -922,7 +945,7 @@ setup_stack (struct intr_frame *if_) {
 	void *stack_bottom = (void *) (((uint8_t *) USER_STACK) - PGSIZE);
 
 	/* TODO: Map the stack on stack_bottom and claim the page immediately.
-	 * TODO: If success, set the rsp accordingly.
+	 * TODO: If success, seFt the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
 	/*
@@ -934,12 +957,13 @@ setup_stack (struct intr_frame *if_) {
 		페이지를 마킹하는데 사용할 수 있습니다.
 	*/
 
-	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, 1)){
+	if(vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true)){
         success = vm_claim_page(stack_bottom);
         if(success){
             if_->rsp = USER_STACK;
             thread_current()->stack = stack_bottom;
         }
+		return success;
     }
 	return success;
 }

@@ -137,29 +137,81 @@ syscall_handler (struct intr_frame *f UNUSED) {
 // + project 3 +
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset){
     // offset이 정렬되지 않았을 때
-    if (offset % PGSIZE != 0){
-        return NULL;
-    }
-    if(pg_round_down(addr) != addr || is_kernel_vaddr(addr) || addr == NULL || (long long)length <=0)
-        return NULL;
-    // console input, output은 mapping x
-    if(fd == 0 || fd == 1)
-        sys_exit(-1);
-    // overlap
-    if(spt_find_page(&thread_current()->spt, addr))
-        return NULL;
+    // if (offset % PGSIZE){
+    //     return NULL;
+    // }
+    // if(pg_round_down(addr) != addr || is_kernel_vaddr(addr) || addr == NULL || (long long)length <=0)
+    //     return NULL;
+    // // console input, output은 mapping x
+    // if(fd == 0 || fd == 1)
+    //     sys_exit(-1);
+    // // overlap
+    // if(spt_find_page(&thread_current()->spt, addr))
+    //     return NULL;
 
 	
-    struct file *target = process_get_file(fd);
-    if(target == NULL)
-        return NULL;
+    // struct file *target = process_get_file(fd);
+    // if(target == NULL)
+    //     return NULL;
 
-    void *ret = do_mmap(addr, length, writable, target, offset);
+    // void *ret = do_mmap(addr, length, writable, target, offset);
 
-    return ret;
+    // return ret;
+
+	if (!addr || is_kernel_vaddr(addr) || pg_round_down(addr) != addr || (long long)length <= 0)
+	{
+		return NULL;
+	}
+
+	if (offset % PGSIZE)
+	{
+		return NULL;
+	}
+
+	if (fd == 0 || fd == 1)
+	{
+		return NULL;
+	}
+
+	if (addr == NULL)
+	{
+		return NULL;
+	}
+
+	if (spt_find_page(&thread_current()->spt, addr))
+	{
+		return NULL;
+	}
+
+	struct file *file = process_get_file(fd);
+
+	if (file == NULL)
+	{
+		return NULL;
+	}
+
+	lock_acquire(&sysfile_lock);
+	file = file_reopen(file);
+	lock_release(&sysfile_lock);
+
+	if (file == NULL)
+	{
+		return NULL;
+	}
+
+	lock_acquire(&sysfile_lock);
+	size_t length_result = file_length(file);
+	lock_release(&sysfile_lock);
+
+	return do_mmap(addr, length_result, writable, file, offset);
+
 }
 
 void munmap(void *addr){
+	if (is_kernel_vaddr(addr) || (uint64_t)addr % PGSIZE || !addr)
+	{
+		return;
+	}
     do_munmap(addr);
 }
 
